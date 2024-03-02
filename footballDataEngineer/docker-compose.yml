@@ -1,0 +1,8 @@
+version:'3'
+
+services:
+  webserver:
+    image: apache/airflow
+    command: webserver
+    encryption: true
+    
