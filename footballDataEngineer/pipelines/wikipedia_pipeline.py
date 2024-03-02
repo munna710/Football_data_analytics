@@ -1,13 +1,14 @@
 import json
-
+import requests
 import pandas as pd
 from geopy import Nominatim
-
+from datetime import datetime
+from bs4 import BeautifulSoup
 NO_IMAGE = 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/No-image-available.png/480px-No-image-available.png'
 
 
 def get_wikipedia_page(url):
-    import requests
+    
 
     print("Getting wikipedia page...", url)
 
@@ -21,7 +22,7 @@ def get_wikipedia_page(url):
 
 
 def get_wikipedia_data(html):
-    from bs4 import BeautifulSoup
+    
 
     soup = BeautifulSoup(html, 'html.parser')
     table = soup.find_all("table", {"class": "wikitable sortable"})[0]
@@ -103,7 +104,7 @@ def transform_wikipedia_data(**kwargs):
 
 
 def write_wikipedia_data(**kwargs):
-    from datetime import datetime
+   
     data = kwargs['ti'].xcom_pull(key='rows', task_ids='transform_wikipedia_data')
 
     data = json.loads(data)
