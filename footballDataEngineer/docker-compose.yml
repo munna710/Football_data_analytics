@@ -4,7 +4,7 @@ services:
   webserver:
     image: apache/airflow:2.6.0-python3.9
     command: webserver
-    entrypoint: [ "/opt/airflow/script/entrypoint.sh" ]
+    entrypoint: ["/opt/airflow/script/entrypoint.sh" ]
     #    restart: always
     depends_on:
       - postgres
