@@ -1,14 +1,13 @@
 import json
-import requests
+
 import pandas as pd
 from geopy import Nominatim
-from datetime import datetime
-from bs4 import BeautifulSoup
+
 NO_IMAGE = 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/No-image-available.png/480px-No-image-available.png'
 
 
 def get_wikipedia_page(url):
-    
+    import requests
 
     print("Getting wikipedia page...", url)
 
@@ -22,15 +21,18 @@ def get_wikipedia_page(url):
 
 
 def get_wikipedia_data(html):
-    
+    from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(html, 'html.parser')
-    table = soup.find_all("table", {"class": "wikitable sortable"})[0]
+    table = soup.find_all("table", {"class": "wikitable sortable sticky-header"})
 
-    table_rows = table.find_all('tr')
+    if not table:
+        print("No tables found on the Wikipedia page.")
+        return []
+
+    table_rows = table[0].find_all('tr')  # Assuming you want the first table
 
     return table_rows
-
 
 def clean_text(text):
     text = str(text).strip()
@@ -49,6 +51,10 @@ def extract_wikipedia_data(**kwargs):
     url = kwargs['url']
     html = get_wikipedia_page(url)
     rows = get_wikipedia_data(html)
+
+    if rows is None:
+        print("No data found. Exiting.")
+        return "No data found."
 
     data = []
 
@@ -70,16 +76,17 @@ def extract_wikipedia_data(**kwargs):
     kwargs['ti'].xcom_push(key='rows', value=json_rows)
 
     return "OK"
+# def get_lat_long(country, city):
+#     try:
+#         geolocator = Nominatim(user_agent='geoapiExercises')
+#         location = geolocator.geocode(f'{city}, {country}', timeout=10)  # Set the timeout value as needed
 
+#         if location:
+#             return location.latitude, location.longitude
+#     except Exception as e:
+#         print(f"Error geocoding for {city}, {country}: {e}")
 
-def get_lat_long(country, city):
-    geolocator = Nominatim(user_agent='geoapiExercises')
-    location = geolocator.geocode(f'{city}, {country}')
-
-    if location:
-        return location.latitude, location.longitude
-
-    return None
+#     return None
 
 
 def transform_wikipedia_data(**kwargs):
@@ -88,33 +95,19 @@ def transform_wikipedia_data(**kwargs):
     data = json.loads(data)
 
     stadiums_df = pd.DataFrame(data)
-    stadiums_df['location'] = stadiums_df.apply(lambda x: get_lat_long(x['country'], x['stadium']), axis=1)
+    # stadiums_df['location'] = stadiums_df.apply(lambda x: get_lat_long(x['country'], x['stadium']), axis=1)
     stadiums_df['images'] = stadiums_df['images'].apply(lambda x: x if x not in ['NO_IMAGE', '', None] else NO_IMAGE)
     stadiums_df['capacity'] = stadiums_df['capacity'].astype(int)
 
     # handle the duplicates
-    duplicates = stadiums_df[stadiums_df.duplicated(['location'])]
-    duplicates['location'] = duplicates.apply(lambda x: get_lat_long(x['country'], x['city']), axis=1)
-    stadiums_df.update(duplicates)
+    # duplicates = stadiums_df[stadiums_df.duplicated(['location'])]
+    # duplicates['location'] = duplicates.apply(lambda x: get_lat_long(x['country'], x['city']), axis=1)
+    # stadiums_df.update(duplicates)
 
     # push to xcom
     kwargs['ti'].xcom_push(key='rows', value=stadiums_df.to_json())
 
     return "OK"
-
-
-def write_wikipedia_data(**kwargs):
-   
-    data = kwargs['ti'].xcom_pull(key='rows', task_ids='transform_wikipedia_data')
-
-    data = json.loads(data)
-    data = pd.DataFrame(data)
-
-    file_name = ('stadium_cleaned_' + str(datetime.now().date())
-                 + "_" + str(datetime.now().time()).replace(":", "_") + '.csv')
-
-    # data.to_csv('data/' + file_name, index=False)
-    data.to_csv('abfs://footballdataeng@footballdataeng.dfs.core.windows.net/data/' + file_name,
-                storage_options={
-                    'account_key': 'pcrbWAsuPmzOH43lu1xang05pIs+g1Lys/bor0z59O38sVyWQNQ64AtEveMobZ2pIwCjqximReKY+ASt9dP/+A=='
-                }, index=False)
+# data_df = pd.DataFrame(data)
+# data_df.to_csv("data/outputput.csv", index=False)
+# return data
