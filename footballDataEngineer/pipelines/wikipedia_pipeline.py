@@ -1,13 +1,21 @@
-import json
 
+import logging
 import pandas as pd
 from geopy import Nominatim
-
+import json
+from bs4 import BeautifulSoup
+from azure.storage.filedatalake import DataLakeServiceClient
+from azure.storage.filedatalake import DataLakeServiceClient
+from azure.core._match_conditions import MatchConditions
+from azure.storage.filedatalake._models import ContentSettings
+from io import StringIO
+import requests
+from datetime import datetime
 NO_IMAGE = 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/No-image-available.png/480px-No-image-available.png'
 
 
 def get_wikipedia_page(url):
-    import requests
+    
 
     print("Getting wikipedia page...", url)
 
@@ -21,7 +29,8 @@ def get_wikipedia_page(url):
 
 
 def get_wikipedia_data(html):
-    from bs4 import BeautifulSoup
+   
+
 
     soup = BeautifulSoup(html, 'html.parser')
     table = soup.find_all("table", {"class": "wikitable sortable sticky-header"})
@@ -74,6 +83,8 @@ def extract_wikipedia_data(**kwargs):
 
     json_rows = json.dumps(data)
     kwargs['ti'].xcom_push(key='rows', value=json_rows)
+    data_df = pd.DataFrame(data)
+    data_df.to_csv("data/output.csv", index=False)  # Corrected the file name
 
     return "OK"
 # def get_lat_long(country, city):
@@ -95,7 +106,7 @@ def transform_wikipedia_data(**kwargs):
     data = json.loads(data)
 
     stadiums_df = pd.DataFrame(data)
-    # stadiums_df['location'] = stadiums_df.apply(lambda x: get_lat_long(x['country'], x['stadium']), axis=1)
+   #stadiums_df['location'] = stadiums_df.apply(lambda x: get_lat_long(x['country'], x['stadium']), axis=1)
     stadiums_df['images'] = stadiums_df['images'].apply(lambda x: x if x not in ['NO_IMAGE', '', None] else NO_IMAGE)
     stadiums_df['capacity'] = stadiums_df['capacity'].astype(int)
 
@@ -108,6 +119,40 @@ def transform_wikipedia_data(**kwargs):
     kwargs['ti'].xcom_push(key='rows', value=stadiums_df.to_json())
 
     return "OK"
-# data_df = pd.DataFrame(data)
-# data_df.to_csv("data/outputput.csv", index=False)
-# return data
+
+def write_wikipedia_data(**kwargs):
+    try:
+        data = kwargs['ti'].xcom_pull(key='rows', task_ids='transform_wikipedia_data')
+        data = json.loads(data)
+        data_df = pd.DataFrame(data)
+        
+        # Convert DataFrame to CSV
+        csv_data = data_df.to_csv(index=False)
+        
+        # Azure storage account details
+        account_name = 'dataengineeringmunna710'
+        account_key = 'WthwgsbwvwOTy30YKRRNbKiJbXV1VjjFfHuBk41qNAfYtqw31DoX/Tq+ESRkQ7J9WBUKKVP9iBvT+AStR/Mchg=='
+        
+        # Create a DataLakeServiceClient
+        service_client = DataLakeServiceClient(account_url="{}://{}.dfs.core.windows.net".format(
+            "https", account_name), credential=account_key)
+        
+        # Create a file system client
+        file_system_client = service_client.get_file_system_client(file_system="footballdataeng")
+        
+        # Create a directory client
+        directory_client = file_system_client.get_directory_client("data")
+        
+        # Get current date and time
+        now = datetime.now()
+        formatted_date = now.strftime('%Y%m%d%H%M%S')
+        
+        # Create a file client
+        file_client = directory_client.get_file_client(f"cleanedData_{formatted_date}.csv")
+        
+        # Upload data to file
+        file_client.upload_data(csv_data, overwrite=True)
+        
+        return "OK"
+    except Exception as e:
+        print(e)
