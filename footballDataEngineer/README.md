@@ -1,6 +1,7 @@
 # System Architecture
 ![](https://github.com/munna710/Football_data_analytics/blob/main/footballDataEngineer/image/system_architecture.png)
 This project is designed to efficiently crawl data from Wikipedia using Apache Airflow, clean and process the data with PostgreSQL, and then push it to Azure Data Lake Gen2 for further processing and analysis.
+![](https://github.com/munna710/Football_data_analytics/blob/main/footballDataEngineer/image/Dashboard%201.png)
 ## Workflow
 1. Utilize Apache Airflow to schedule and monitor the workflow of crawling data from Wikipedia.
 2. Cleanse and preprocess the crawled data using PostgreSQL.
